@@ -1,0 +1,73 @@
+{
+  "name": "dancing-editor",
+  "version": "1.0.0",
+  "description": "Z80 Dancing Editor DancingStar - Electron application",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "npm run build && electron .",
+    "dev": "concurrently \"tsc -w\" \"wait-on dist/main.js && electron .\"",
+    "clean": "rimraf dist",
+    "lint": "eslint src/**/*.ts",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "create:z80": "npm run build && node dist/cli-z80-exporter.js",
+    "package": "npm run build && electron-builder",
+    "package:win": "npm run build && electron-builder --win",
+    "package:mac": "npm run build && electron-builder --mac",
+    "package:linux": "npm run build && electron-builder --linux",
+    "dist": "npm run build && electron-builder --publish=never"
+  },
+  "keywords": [
+    "electron",
+    "typescript",
+    "z80",
+    "editor"
+  ],
+  "author": "ueno",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.14.10",
+    "concurrently": "^8.2.2",
+    "electron": "^31.2.1",
+    "electron-builder": "^24.13.3",
+    "jest": "^30.0.5",
+    "rimraf": "^5.0.7",
+    "ts-jest": "^29.4.1",
+    "typescript": "^5.5.3",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "@types/jimp": "^0.2.1",
+    "jimp": "^1.6.0"
+  },
+  "build": {
+    "appId": "com.ueno.dancing-editor",
+    "productName": "DancingStar",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "renderer/**/*",
+      "images/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "portable"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}

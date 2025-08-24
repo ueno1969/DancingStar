@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Z80 Dancing Editor DancingStar</title>
+  <link rel="stylesheet" href="styles.css">
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Z80 Dancing Editor - DancingStar</title>
+  <link rel="stylesheet" href="styles.css?v=3">
+  <script src="logger.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- 通知システム -->
+    <div id="notification-container" class="notification-container"></div>
+    
+    <!-- 画像インポート設定ダイアログ -->
+    <div id="import-dialog" class="dialog-overlay" style="display: none;">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h3>画像インポート設定</h3>
+          <button id="import-dialog-close" class="dialog-close">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <div class="import-preview">
+            <img id="import-preview-image" alt="インポート予定の画像" style="max-width: 300px; max-height: 200px;">
+          </div>
+          <div class="import-settings">
+            <div class="input-group">
+              <label for="import-prefix">ファイル名のプレフィックス:</label>
+              <input type="text" id="import-prefix" value="image" placeholder="例: ropoko">
+            </div>
+            <div class="input-row">
+              <div class="input-group">
+                <label for="import-tile-width">タイルの幅 (px):</label>
+                <input type="number" id="import-tile-width" value="72" min="1" max="1000">
+              </div>
+              <div class="input-group">
+                <label for="import-tile-height">タイルの高さ (px):</label>
+                <input type="number" id="import-tile-height" value="88" min="1" max="1000">
+              </div>
+            </div>
+            <div class="import-info">
+              <p id="import-calc-info">計算中...</p>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button id="import-cancel-btn" class="btn secondary">キャンセル</button>
+          <button id="import-execute-btn" class="btn primary">インポート実行</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- ステータスバー -->
+    <div id="status-bar" class="status-bar">
+      <span id="status-text">準備完了</span>
+    </div>
+
+    <main>
+      <div class="container">
+        <!-- アニメーション制御パネル -->
+        <section class="animation-panel">
+          <div class="animation-workspace">
+            <!-- 左上: 画像リスト -->
+            <div class="image-list-panel">
+              <h3>画像リスト</h3>
+              <div id="imageList" class="image-grid"></div>
+            </div>
+            
+            <!-- 左中: フレーム編集 -->
+            <div class="frame-editor-panel">
+              <h3>フレーム編集</h3>
+              <div class="frame-controls">
+                <!-- 上段: 入力フィールドを横並び -->
+                <div class="input-row">
+                  <div class="input-group">
+                    <label>画像ID:</label>
+                    <select id="imageIdSelect">
+                      <option value="">選択してください</option>
+                    </select>
+                  </div>
+                  <div class="input-group">
+                    <label>X座標:</label>
+                    <input type="number" id="xPosition" min="0" max="160" value="36">
+                  </div>
+                  <div class="input-group">
+                    <label>Y座標:</label>
+                    <input type="number" id="yPosition" min="0" max="100" value="2">
+                  </div>
+                  <div class="input-group">
+                    <label>待ち時間:</label>
+                    <input type="number" id="waitTime" min="1" max="120" value="10">
+                  </div>
+                </div>
+                
+                <!-- 下段: ボタンを横並び（グループ分け） -->
+                <div class="button-groups">
+                  <div class="button-group">
+                    <button id="addFrameBtn" class="btn primary">末尾追加</button>
+                    <button id="insertFrameBtn" class="btn secondary">挿入</button>
+                    <button id="editFrameBtn" class="btn edit">編集</button>
+                  </div>
+                  <div class="button-group">
+                    <button id="undoBtn" class="btn undo" title="元に戻す (Ctrl+Z)">↶ Undo</button>
+                    <button id="redoBtn" class="btn redo" title="やり直し (Ctrl+Y)">↷ Redo</button>
+                  </div>
+                  <div class="button-group">
+                    <button id="previewFrameBtn" class="btn secondary">プレビュー</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 左下: シミュレーション -->
+            <div class="simulation-panel">
+              <h3>シミュレーション画面 (160×100 - <span id="zoomDisplayText">2倍表示</span>)</h3>
+              
+              <!-- 動画・アニメーション同期表示エリア -->
+              <div class="sync-display-container">
+                <div class="animation-display">
+                  <div class="canvas-container">
+                    <canvas id="animationCanvas"></canvas>
+                  </div>
+                </div>
+                <div class="video-display" id="videoDisplay" style="display: none;">
+                  <video id="syncVideo" controls="false" style="width: 100%; height: auto;"></video>
+                </div>
+              </div>
+              
+              <div class="canvas-controls">
+                <div class="control-left">
+                  <button id="playBtn" class="btn primary">▶ 再生</button>
+                  <button id="pauseBtn" class="btn secondary">⏸ 一時停止</button>
+                  <button id="syncPlayBtn" class="btn highlight" style="display: none;">同期</button>
+                  <div id="frameInfo" class="frame-info" style="display: none;">
+                    <span>フレーム: <span id="currentFrameDisplay">-</span></span>
+                  </div>
+                </div>
+                <div class="control-center">
+                  <div class="zoom-control">
+                    <label for="zoomLevel">表示倍率:</label>
+                    <div class="zoom-buttons">
+                      <button id="zoom2x" class="btn zoom-btn active" data-zoom="2">2倍</button>
+                      <button id="zoom3x" class="btn zoom-btn" data-zoom="3">3倍</button>
+                      <button id="zoom4x" class="btn zoom-btn" data-zoom="4">4倍</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="control-right">
+                  <button id="loadVideoBtn" class="btn secondary">📹 動画読み込み</button>
+                </div>
+              </div>
+              <div class="speed-control">
+                <div class="animation-speed-section">
+                  <label for="animationSpeed">アニメーション速度: <span id="speedValue">1.0</span>倍</label>
+                  <div class="speed-input-group">
+                    <input type="range" id="animationSpeed" min="0.25" max="2" step="0.01" value="1" class="speed-slider">
+                    <input type="number" id="animationSpeedInput" min="0.25" max="2" step="0.05" value="1" class="speed-input">
+                  </div>
+                </div>
+                <div class="sync-speed-section">
+                  <label for="syncSpeed">同期再生速度: <span id="syncSpeedValue">1.0</span>倍</label>
+                  <div class="sync-speed-control">
+                    <input type="range" id="syncSpeed" min="0" max="3" step="1" value="3" class="sync-speed-slider">
+                    <div class="sync-speed-labels">
+                      <span>0.25×</span>
+                      <span>0.5×</span>
+                      <span>0.75×</span>
+                      <span>1.0×</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 右端: フレームシーケンス -->
+            <div class="frame-sequence-panel">
+              <div class="sequence-header">
+                <h3>フレームシーケンス</h3>
+                <div class="sequence-controls">
+                  <label>
+                    <input type="checkbox" id="loopAnimation" checked>
+                    ループ再生
+                  </label>
+                </div>
+                <div class="keyboard-hints">
+                  <small>
+                    ↑↓: 選択移動 | Shift+↑↓: 順序変更 | Enter: 編集 | Esc: 戻る | Del: 削除
+                  </small>
+                </div>
+              </div>
+              <div id="frameSequence" class="frame-sequence-vertical" tabindex="0"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+  
+  <!-- 分離されたクラスファイルをインポート -->
+  <script src="notification-system.js"></script>
+  <script src="edit-state-tracker.js"></script>
+  <script src="undo-redo-manager.js"></script>
+  <script src="simple-image-manager.js"></script>
+  <script src="animation-engine.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
